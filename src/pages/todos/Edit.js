@@ -1,95 +1,110 @@
-import React, { Component } from 'react'
-import api from '../../api/api'
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../../api/api';
+import useTodo from '../../hooks/useTodo';
+import TodoForm from '../../common/TodoForm';
+import Loader from '../../common/Loader';
+import './Todos.css';
 
-import { useParams, Link, useNavigate } from 'react-router-dom';
+export default function EditTodo() {
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-export default function EditWrapper() {
-    const { id }  = useParams()
-    const navigate = useNavigate()
-    return <Edit id={id} navigate={navigate} />
+  const { todo, setTodo, loading: loadingTodo, error: loadError } = useTodo(id);
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (todo) {
+      setTitle(todo.title ?? '');
+      setDescription(todo.description ?? '');
+      setError(null);
+      setValidationError(null);
+    }
+  }, [todo]);
+
+  useEffect(() => {
+    if (loadError) setError(loadError);
+  }, [loadError]);
+
+  const validate = useCallback(() => {
+    if (!title.trim()) return 'Title is required.';
+    return null;
+  }, [title]);
+
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+
+      const validationErr = validate();
+      if (validationErr) {
+        setValidationError(validationErr);
+        return;
+      }
+
+      setValidationError(null);
+      setError(null);
+      setSaving(true);
+
+      try {
+        const payload = { title: title.trim(), description };
+        const res = await api.put(`/api/v1/todos/${id}`, payload);
+        const updated = res?.data?.data ?? res?.data ?? payload;
+        setTodo(updated);
+        setSuccessMessage('Saved successfully.');
+
+        setTimeout(() => navigate('/todos'), 700);
+      } catch (err) {
+        const resp = err?.response;
+        if (resp?.status === 400 && resp.data?.validation) {
+          setValidationError(resp.data.validation.body?.message || 'Validation failed');
+        } else {
+          setError(resp?.data?.message || err.message || 'Failed to update todo');
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [id, title, description, navigate, setTodo, validate]
+  );
+
+  if (loadingTodo) return <Loader message="Loading todos..." />;
+
+  if (error && !todo) return (
+    <div className="container todos">
+      <div className="alert alert-danger">{error}</div>
+      <Link to="/todos" className="btn btn-secondary mt-2">Back to list</Link>
+    </div>
+  );
+
+  return (
+    <div className="todos app-hero-bg">
+      <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+        <div className="card app-hero-card w-100" style={{ maxWidth: 720 }}>
+          <div className="card-body">
+            <h3 className="card-title mb-3">Edit Todo</h3>
+                <TodoForm
+                title={title}
+                description={description}
+                onTitleChange={e => setTitle(e.target.value)}
+                onDescriptionChange={e => setDescription(e.target.value)}
+                onSubmit={handleSubmit}
+                loading={saving}
+                error={error}
+                validationError={validationError}
+                successMessage={successMessage}
+                submitLabel="Save Changes"
+                showCancel
+                onCancel={() => navigate('/todos')}
+                />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
-
-class Edit extends Component {
-    state = {
-        title: '',
-        description: '',
-        error: null,
-        loading: true,
-        validationError: null,
-        sucessMessage: ''
-    }
-
-    componentDidMount() {
-        // api.get(``)
-        const { id } = this.props;
-        api.get(`api/v1/todos/${id}`).then(res => {
-            this.setState({ title: res.data.title, description: res.data.description, loading: false })
-        }).catch(error => {
-            this.setState({
-                error: error.message || 'Todo was not found',
-                loading: false
-            })
-        })
-    }
-  
-    handleChange = (e) => {
-        this.setState({ [e.target.name]: e.target.value })
-    }
-
-    handleSubmit = (e) => {
-        e.preventDefault()
-        const { title, description } = this.state;
-        const { id, navigate } = this.props;
-        this.setState({ loading: true, validationError: null, error: null, sucessMessage: '' })
-        api.put(`api/v1/todos/${id}`, { title, description}).then(res => {
-            // console.log('data', res.data);
-            // this.setState({ title: res.data.title, description: res.data.description, sucessMessage: 'Sucessfully updated your todo list', loading: false })
-            navigate('/todos')
-        })
-        .catch(error => {
-            if (error && error.response && error.response.status === 400 && error.response.data.validation) {
-                this.setState({ validationError: error.response.data.validation.body.message, loading: false })
-            } else {
-                this.setState({ error: error.message ?? 'Unable to update todos this time', loading: false})
-            }
-        })
-
-    }
-
-    render() {
-        const { title, description, error, loading, validationError, sucessMessage } = this.state;
-        return (
-            <div className='container todos'>
-                <div className="row">
-                    <h2 className='m-2'>Update Todo</h2>
-                    { loading && (
-                        <p>Loading....</p>
-                    )}
-                    <form className='m-2' onSubmit={this.handleSubmit}>
-                        { sucessMessage && (
-                            <p className='alert alert-sucess'>{sucessMessage}</p>
-                        )}
-                        { error && (
-                            <p className='alert alert-danger'>{error}</p>
-                        )}
-                        { validationError && (
-                            <p className='alert alert-danger'>{validationError}</p>
-                        )}
-                        <div className="mb-3">
-                            <label className="form-label">Title</label>
-                            <input type="text" className="form-control" id="title" name="title" value={title} onChange={this.handleChange}/>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label">Description</label>
-                            <textarea className="form-control" id="description" name="description" value={description} onChange={this.handleChange}/>
-                        </div>
-                        <button type="submit" className="btn btn-primary">Submit</button>
-                        <Link to={`/todos`}><button type="button" className="btn btn-primary m-2">Go Back</button></Link>
-                    </form>
-                </div>
-            </div>  
-        )
-    }
-}
-
-// export default EditWrapper(Edit)

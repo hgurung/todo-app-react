@@ -6,7 +6,9 @@ export default function Layout({ children }) {
   return (
     <div className="d-flex flex-column min-vh-100">
       <Header />
-      <main className="flex-fill">{children}</main>
+      <main className="flex-fill">
+        {children}
+      </main>
       <Footer />
     </div>
   );

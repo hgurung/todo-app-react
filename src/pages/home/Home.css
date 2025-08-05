@@ -1,5 +1,18 @@
+/* Home.css */
 .home {
-  min-height: calc(100vh - 120px); /* Adjust so footer fits */
+  min-height: calc(100vh - 120px);
+}
+
+/* global hero background for pages that use it */
+.app-hero-bg {
   background: linear-gradient(135deg, #4f8ef7, #1e3c72);
   color: white;
+}
+
+/* small helper so cards on hero look good */
+.app-hero-card {
+  background: rgba(255,255,255,0.98);
+  color: #222;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
 }

@@ -1,72 +1,82 @@
-import React, { Component } from 'react'
-import { Link } from "react-router";
+import React, { useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/api';
+import TodoForm from '../../common/TodoForm';
+import './Todos.css';
 
-export default class Add extends Component {
+export default function AddTodo() {
+  const navigate = useNavigate();
 
-    state = {
-        title: '',
-        description: '',
-        error: null,
-        loading: false,
-        validationError: null,
-        sucessMessage: ''
-    }
-  
-    handleChange = (e) => {
-        this.setState({ [e.target.name]: e.target.value })
-    }
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
-    handleSubmit = (e) => {
-        e.preventDefault()
-        const { title, description } = this.state;
-        this.setState({ loading: true, validationError: null, error: null, sucessMessage: '' })
-        api.post(`api/v1/todos`, { title, description}).then(res => {
-            this.setState({ title: '', description: '', sucessMessage: 'Sucessfully added to your todo list', loading: false })
-        })
-        .catch(error => {
-            if (error && error.response && error.response.status === 400 && error.response.data.validation) {
-                this.setState({ validationError: error.response.data.validation.body.message, loading: false })
-            } else {
-                this.setState({ error: error.message ?? 'Unable to save todos this time', loading: false})
-            }
+  const validate = useCallback(() => {
+    if (!title.trim()) return 'Title is required.';
+    return null;
+  }, [title]);
 
-        })
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
 
-    }
+      const validationErr = validate();
+      if (validationErr) {
+        setValidationError(validationErr);
+        return;
+      }
 
-    render() {
-        const { title, description, error, loading, validationError, sucessMessage } = this.state;
-        return (
-            <div className='container todos'>
-                <div className="row">
-                    <h2 className='m-2'>Add Todos here</h2>
-                    { loading && (
-                        <p>Loading....</p>
-                    )}
-                    <form className='m-2' onSubmit={this.handleSubmit}>
-                        { sucessMessage && (
-                            <p className='alert alert-sucess'>{sucessMessage}</p>
-                        )}
-                        { error && (
-                            <p className='alert alert-danger'>{error}</p>
-                        )}
-                        { validationError && (
-                            <p className='alert alert-danger'>{validationError}</p>
-                        )}
-                        <div className="mb-3">
-                            <label className="form-label">Title</label>
-                            <input type="text" className="form-control" id="title" name="title" value={title} onChange={this.handleChange}/>
-                        </div>
-                        <div className="mb-3">
-                            <label className="form-label">Description</label>
-                            <textarea className="form-control" id="description" name="description" value={description} onChange={this.handleChange}/>
-                        </div>
-                        <button type="submit" className="btn btn-primary">Submit</button>
-                        <Link to={`/todos`}><button type="button" className="btn btn-primary m-2">Go Back</button></Link>
-                    </form>
-                </div>
-            </div>  
-        )
-    }
+      setValidationError(null);
+      setError(null);
+      setLoading(true);
+
+      try {
+        await api.post('/api/v1/todos', { title: title.trim(), description });
+        setSuccessMessage('Successfully added to your todo list');
+        setTitle('');
+        setDescription('');
+        setTimeout(() => navigate('/todos'), 800);
+      } catch (err) {
+        const resp = err?.response;
+        if (resp?.status === 400 && resp.data?.validation) {
+          setValidationError(resp.data.validation.body.message);
+        } else {
+          setError(resp?.data?.message || err.message || 'Unable to save todo at this time');
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [title, description, navigate, validate]
+  );
+
+  return (
+    <div className="todos app-hero-bg">
+      <div className="container d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+        <div className="card app-hero-card w-100" style={{ maxWidth: 720 }}>
+          <div className="card-body">
+            <h3 className="card-title mb-3">Add a new Todo</h3>
+
+            <TodoForm
+              title={title}
+              description={description}
+              onTitleChange={e => setTitle(e.target.value)}
+              onDescriptionChange={e => setDescription(e.target.value)}
+              onSubmit={handleSubmit}
+              loading={loading}
+              error={error}
+              validationError={validationError}
+              successMessage={successMessage}
+              submitLabel="Submit"
+              showCancel
+              onCancel={() => navigate('/todos')}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
