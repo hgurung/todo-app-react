@@ -1,5 +1,5 @@
 .home {
-    height: 100vh;
-    width: 100%;
-    background-color: antiquewhite;
+  min-height: calc(100vh - 120px); /* Adjust so footer fits */
+  background: linear-gradient(135deg, #4f8ef7, #1e3c72);
+  color: white;
 }
